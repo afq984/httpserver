@@ -63,23 +63,24 @@ func (fs afterServerStartFileSystem) Open(name string) (http.File, error) {
 	return afterServerStartFile{f}, err
 }
 
-// Replace301With302 is a handler wrapper that changes all 301 redirects to 302
-// so browsers will not remember redirects that is from a previous
+// NoPermanent3XX is a wrapper handler that changes all permanent (301,308) redirects
+// to 307 so browsers will not remember redirects that is from a previous
 // http server invocation
-type Replace301With302 struct {
+type NoPermanent3XX struct {
 	http.Handler
 }
 
-type replace301With302ResponseWriter struct {
+type noPermanent3XXResponseWriter struct {
 	http.ResponseWriter
 }
 
-func (h Replace301With302) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.Handler.ServeHTTP(replace301With302ResponseWriter{w}, r)
+func (h NoPermanent3XX) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.Handler.ServeHTTP(noPermanent3XXResponseWriter{w}, r)
 }
 
-func (w replace301With302ResponseWriter) WriteHeader(statusCode int) {
-	if statusCode == http.StatusPermanentRedirect {
+func (w noPermanent3XXResponseWriter) WriteHeader(statusCode int) {
+	switch statusCode {
+	case http.StatusMovedPermanently, http.StatusPermanentRedirect:
 		statusCode = http.StatusTemporaryRedirect
 	}
 	w.ResponseWriter.WriteHeader(statusCode)
@@ -95,5 +96,5 @@ func main() {
 		fmt.Sprintf(":%d", *port),
 		handlers.LoggingHandler(
 			os.Stderr,
-			Replace301With302{http.FileServer(afterServerStartFileSystem{http.Dir(*dir)})}))
+			NoPermanent3XX{http.FileServer(afterServerStartFileSystem{http.Dir(*dir)})}))
 }
