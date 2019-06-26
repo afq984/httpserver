@@ -63,6 +63,28 @@ func (fs afterServerStartFileSystem) Open(name string) (http.File, error) {
 	return afterServerStartFile{f}, err
 }
 
+// Replace301With302 is a handler wrapper that changes all 301 redirects to 302
+// so browsers will not remember redirects that is from a previous
+// http server invocation
+type Replace301With302 struct {
+	http.Handler
+}
+
+type replace301With302ResponseWriter struct {
+	http.ResponseWriter
+}
+
+func (h Replace301With302) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.Handler.ServeHTTP(replace301With302ResponseWriter{w}, r)
+}
+
+func (w replace301With302ResponseWriter) WriteHeader(statusCode int) {
+	if statusCode == http.StatusPermanentRedirect {
+		statusCode = http.StatusTemporaryRedirect
+	}
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
 func main() {
 	port := flag.Int("port", 8000, "listen on which port")
 	dir := flag.String("dir", ".", "directory to serve")
@@ -73,5 +95,5 @@ func main() {
 		fmt.Sprintf(":%d", *port),
 		handlers.LoggingHandler(
 			os.Stderr,
-			http.FileServer(afterServerStartFileSystem{http.Dir(*dir)})))
+			Replace301With302{http.FileServer(afterServerStartFileSystem{http.Dir(*dir)})}))
 }
