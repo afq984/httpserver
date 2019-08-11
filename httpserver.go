@@ -92,9 +92,10 @@ func main() {
 	flag.Parse()
 	fmt.Printf("listening on port: %d\nserving directory: %s\n", *port, *dir)
 	serverStart = time.Now()
-	http.ListenAndServe(
+	err := http.ListenAndServe(
 		fmt.Sprintf(":%d", *port),
 		handlers.LoggingHandler(
 			os.Stderr,
 			NoPermanent3XX{http.FileServer(afterServerStartFileSystem{http.Dir(*dir)})}))
+	panic(err)
 }
